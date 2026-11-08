@@ -1,45 +1,39 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, { useState } from "react";
+import { StatusBar } from "react-native";
+import { NavigationContainer } from "@react-navigation/native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { PaperProvider } from "react-native-paper";
+import TabNavigator from "./src/navigation/TabNavigator";
+import { AppProvider } from "./src/context/AppContext";
+import { useCallReceiverListener } from "./src/hooks/useCallReceiverListener";
+import AuthGate from "./src/screens/AuthGate";
+import { paperTheme, navigationTheme, colors } from "./src/theme/theme";
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
-
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
-  );
+function Root() {
+  useCallReceiverListener();
+  return <TabNavigator />;
 }
 
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
+const App = () => {
+  const [authenticated, setAuthenticated] = useState(false);
 
   return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
+    <AppProvider>
+      <PaperProvider theme={paperTheme}>
+        <SafeAreaProvider>
+          <StatusBar barStyle="dark-content" backgroundColor={colors.bgCanvas} />
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+          <NavigationContainer theme={navigationTheme}>
+            {authenticated ? (
+              <Root />
+            ) : (
+              <AuthGate onAuthenticated={() => setAuthenticated(true)} />
+            )}
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </PaperProvider>
+    </AppProvider>
+  );
+};
 
 export default App;

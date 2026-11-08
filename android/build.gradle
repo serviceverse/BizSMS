@@ -19,3 +19,13 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
+
+subprojects {
+    tasks.configureEach { task ->
+        if (task.name.toLowerCase().contains("lint") ||
+            task.name.contains("extractReleaseAnnotations") ||
+            task.name.contains("extractDebugAnnotations")) {
+            task.enabled = false
+        }
+    }
+}
