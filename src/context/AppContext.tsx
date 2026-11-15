@@ -10,6 +10,12 @@ import {
   getSystemSentSmsCountToday,
   isValidPhoneNumber,
 } from "../services/smsService";
+import {
+  ClientUser,
+  getClientSession,
+  clearClientSession,
+  verifyClientActiveStatus,
+} from "../services/hrmsAuthService";
 
 const { CallModule } = NativeModules;
 
@@ -179,6 +185,14 @@ type AppContextType = {
   resendMessage: (id: number) => Promise<void>;
   refreshLogs: () => Promise<void>;
   refreshCounter: () => Promise<number>;
+
+  // Client & HRMS Auth
+  clientUser: ClientUser | null;
+  authenticated: boolean;
+  setAuthenticated: (auth: boolean) => void;
+  logoutClient: () => Promise<void>;
+  refreshClientStatus: () => Promise<boolean>;
+  syncClientProfile: (client: ClientUser) => Promise<void>;
 };
 
 export const AppContext = createContext<AppContextType>({} as AppContextType);
@@ -239,6 +253,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     default: "Hello, this is a default message!",
     custom: [],
   });
+  const [clientUser, _setClientUser] = useState<ClientUser | null>(null);
+  const [authenticated, _setAuthenticated] = useState<boolean>(false);
 
   // Load all initial data
   useEffect(() => {
@@ -306,6 +322,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         await syncSystemSmsQuota();
         await loadContacts(storedContacts);
 
+        const savedClient = await getClientSession();
+        if (savedClient) {
+          _setClientUser(savedClient);
+        }
+
         // Immediately sync rules & profile to Android native SharedPreferences
         // so CallReceiver can respond to calls even when app is killed or phone is locked!
         const loadedAuto = storedAuto ? JSON.parse(storedAuto) : automations;
@@ -319,6 +340,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
     initData();
   }, []);
+
+  const logoutClient = async () => {
+    await clearClientSession();
+    _setClientUser(null);
+    _setAuthenticated(false);
+  };
+
+  const refreshClientStatus = async (): Promise<boolean> => {
+    const client = clientUser || (await getClientSession());
+    if (!client) {
+      await logoutClient();
+      return false;
+    }
+    const result = await verifyClientActiveStatus(client);
+    if (!result.isActive) {
+      await logoutClient();
+      return false;
+    }
+    if (result.client) {
+      _setClientUser(result.client);
+    }
+    return true;
+  };
+
+  const syncClientProfile = async (client: ClientUser) => {
+    _setClientUser(client);
+    _setProfile((prev) => ({
+      ...prev,
+      businessName: client.company_name || prev.businessName,
+      ownerName: client.name || prev.ownerName,
+      phone: client.mobile || prev.phone,
+    }));
+  };
 
   const syncSystemSmsQuota = async () => {
     try {
@@ -951,7 +1005,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         });
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await new Promise((resolve) => setTimeout(() => resolve(undefined), 800));
     }
 
     const finished: Campaign[] = campaigns.map((c) =>
@@ -1112,6 +1166,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         resendMessage,
         refreshLogs,
         refreshCounter,
+        clientUser,
+        authenticated,
+        setAuthenticated: _setAuthenticated,
+        logoutClient,
+        refreshClientStatus,
+        syncClientProfile,
       }}
     >
       {children}

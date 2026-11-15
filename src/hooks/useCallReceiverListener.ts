@@ -82,7 +82,7 @@ export function useCallReceiverListener() {
               PermissionsAndroid.PERMISSIONS.SEND_SMS,
             ];
 
-            if (Platform.Version >= 33) {
+            if (Number(Platform.Version) >= 33) {
               permissionsToRequest.push(
                 PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
               );
